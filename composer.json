@@ -1,0 +1,18 @@
+{
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4": {
+            "Blrf\\Orm\\": "./src",
+            "Blrf\\Tests\\Orm\\": "./tests"
+        }
+    },
+    "require": {
+        "blrf/dbal": "dev-main",
+        "psr/container": "^2.0",
+        "psr/log": "^3.0",
+        "react/async": "^4.2"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0"
+    }
+}
