@@ -1,16 +1,21 @@
 {
+    "name": "blrf/orm",
+    "description": "Async ORM for ReactPHP.",
+    "keywords": ["orm", "async", "database", "reactphp"],
+    "license": "MIT",
     "minimum-stability": "dev",
+    "require": {
+        "php": ">=8.1.0",
+        "blrf/dbal": "dev-main",
+        "psr/container": "^2.0",
+        "psr/log": "^3.0",
+        "react/async": "^4.2"
+    },
     "autoload": {
         "psr-4": {
             "Blrf\\Orm\\": "./src",
             "Blrf\\Tests\\Orm\\": "./tests"
         }
-    },
-    "require": {
-        "blrf/dbal": "dev-main",
-        "psr/container": "^2.0",
-        "psr/log": "^3.0",
-        "react/async": "^4.2"
     },
     "require-dev": {
         "phpunit/phpunit": "^11.0"
