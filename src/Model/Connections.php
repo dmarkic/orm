@@ -32,6 +32,12 @@ use SplObjectStorage;
  * `find`, `delete`, .... Operations will be documented later.
  *
  * @note Operation is currently not matched
+ * @phpstan-type ConnectionInfo array{
+ *      for: string,
+ *      ops: string[],
+ *      connection: null|PromiseInterface<\Blrf\Dbal\Connection>
+ * }
+ * @extends SplObjectStorage<DbalConfig, ConnectionInfo>
  */
 class Connections extends SplObjectStorage implements LoggerAwareInterface
 {
@@ -47,11 +53,12 @@ class Connections extends SplObjectStorage implements LoggerAwareInterface
         $this->setLogger(Factory::getLogger());
     }
 
+    /** @return PromiseInterface<\Blrf\Dbal\Connection> */
     public function get(string $for = '*', string $op = 'NOT_DEFINED_YET'): PromiseInterface
     {
         foreach ($this as $config) {
             $data = $this[$config];
-            if (fnmatch($data['for'], $for)) {
+            if (fnmatch($data['for'], $for, FNM_NOESCAPE)) {
                 $this->logger->debug('Found connection: ' . $config . ' for ' . $for);
                 if ($data['connection'] === null) {
                     $data['connection'] = $config->create();
@@ -71,6 +78,8 @@ class Connections extends SplObjectStorage implements LoggerAwareInterface
      * - for: string: fnmatch'ed string for namespace\class
      * - ops: array: Array of operations to use connection for (not defined yet)
      * - connection: The connection it self (will be established by self::get when needed)
+     *
+     * @param ConnectionInfo|null $info
      */
     public function attach(object $config, mixed $info = null): void
     {

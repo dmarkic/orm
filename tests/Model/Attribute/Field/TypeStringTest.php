@@ -8,22 +8,42 @@ use Blrf\Orm\Model\Attribute\Field\Type;
 use Blrf\Orm\Model\Attribute\Field\TypeString;
 use PHPUnit\Framework\Attributes\CoversClass;
 
+#[CoversClass(Type::class)]
 #[CoversClass(BaseType::class)]
 #[CoversClass(TypeString::class)]
 class TypeStringTest extends TestCase
 {
-    public function testDefaultConstruct()
+    public function testDefaultFactory()
     {
-        $type = new TypeString();
+        $type = TypeString::factory();
         $this->assertNull($type->min);
         $this->assertNull($type->max);
         $this->assertFalse($type->isNull);
         $this->assertSame(Type::STRING, $type->type);
+        $this->assertSame('string', (string)$type);
     }
 
     public function testCast()
     {
-        $type = new TypeString();
+        $type = TypeString::factory();
         $this->assertSame('2', $type->cast(2));
+    }
+
+    public function testCastNull()
+    {
+        $type = TypeString::factory();
+        $this->assertNull($type->cast(null));
+    }
+
+    public function testDecast()
+    {
+        $type = TypeString::factory();
+        $this->assertSame('2', $type->decast(2));
+    }
+
+    public function testDecastNull()
+    {
+        $type = TypeString::factory();
+        $this->assertNull($type->decast(null));
     }
 }

@@ -33,6 +33,11 @@ use is_scalar;
  * from database, the data should be overwritten.
  *
  * @see Hydrator::hydrate()
+ * @phpstan-type ChangesReturn array{
+ *      Field: Field,
+ *      current: mixed,
+ *      previous: mixed
+ * }|array<void>
  */
 class Changes
 {
@@ -40,6 +45,7 @@ class Changes
      * Current data
      *
      * [ modelId => [ fieldName => [ Field => Field, value => scalar] ] ]
+     * @var array<int, array<string, array{field: Field, value: mixed}>>
      */
     protected array $data = [];
 
@@ -68,7 +74,7 @@ class Changes
      * ]
      * ```
      *
-     * @return array
+     * @return ChangesReturn
      */
     public function getChanges(Model $model): array
     {
@@ -129,38 +135,4 @@ class Changes
             unset($this->data[$id]);
         }
     }
-
-
-    /**
-     * Get field value
-     *
-     * Field may be Related or ;odel and we need scalar value to compare.
-     *
-     * Scalar may not be a good name.
-     *
-    protected function getScalarValue(Field $field, mixed $value): mixed
-    {
-        $relation = $field->getRelation();
-        if ($relation) {
-            /**
-             * note: null is not scalar
-             *
-            if (is_scalar($value)) {
-                return $value;
-            } elseif ($value instanceof RelatedProxyInterface) {
-                return $value->getOrmProxyValue();
-            } elseif ($value instanceof Model) {
-                $manager = Factory::getModelManager();
-                $hydrator = $manager->getHydrator($value::class);
-                $value = $hydrator->getFieldValue($value, $relation->field);
-            } elseif ($value === null) {
-                throw new \Exception('Field value is NULL: ' . $field->name);
-            } else {
-                throw new \Exception(
-                    'Field is related: ' . $field->name . ' value: ' . (is_object($value) ? get_class($value) : $value)
-                );
-            }
-        }
-        return $value;
-    }*/
 }

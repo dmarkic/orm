@@ -9,7 +9,7 @@ use RuntimeException;
 use LogicException;
 use Blrf\Dbal\Config as DbalConfig;
 use Blrf\Dbal\Connection;
-use Blrf\Dbal\Result;
+use Blrf\Dbal\Result as DbalResult;
 use Blrf\Dbal\Query\Condition;
 use Blrf\Orm\Factory;
 use Blrf\Orm\Model;
@@ -18,6 +18,7 @@ use Blrf\Orm\Model\Attribute\Relation;
 use Blrf\Orm\Model\Exception\UpdateNoChangesException;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
+use React\Promise\Promise;
 use React\Promise\PromiseInterface;
 
 use function React\Promise\resolve;
@@ -26,6 +27,8 @@ use function React\Promise\reject;
 /**
  * Model manager
  *
+ * @phpstan-import-type ChangesReturn from Changes
+ * @phpstan-import-type FindArguments from Model\Finder
  */
 class Manager implements LoggerAwareInterface
 {
@@ -40,24 +43,24 @@ class Manager implements LoggerAwareInterface
      *
      * Model is initialized only once.
      *
-     * @var array [className => true]
+     * @var array<string,bool>
      * @todo Do we need this?
      */
     protected array $initializedModels = [];
     /**
      * Model meta(s)
      *
-     * @var array [className => Meta]
+     * @var array<string,PromiseInterface<Meta>>
      */
     protected array $metas = [];
     /**
      * Model hydrator(s)
-     * @var array [className => Hydrator]
+     * @var array<string,Hydrator>
      */
     protected array $hydrators = [];
     /**
      * Model finder(s)
-     * @var array [className => Finder]
+     * @var array<string,PromiseInterface<Finder>>
      */
     protected array $finders = [];
 
@@ -73,11 +76,13 @@ class Manager implements LoggerAwareInterface
      *
      * @note Do we need this?!?
      */
-    public function initialize(Model $model)
+    public function initialize(Model $model): void
     {
         if (!isset($this->initializedModels[$model::class])) {
             $this->logger->debug('Initialize model: ' . $model::class);
-            $model->ormInitialize();
+            if (method_exists($model, 'ormInitialize')) {
+                $model->ormInitialize();
+            }
             $this->initializedModels[$model::class] = true;
         }
     }
@@ -87,18 +92,23 @@ class Manager implements LoggerAwareInterface
      *
      * Once meta is resolved, hydrator for model will be created.
      *
+     * We first read the data and after that, we finalize the data.
+     *
+     * @see Meta\Data::finalize();
+     * @param class-string<Model> $model
      * @return PromiseInterface<Meta>
      */
     public function getMeta(string $model): PromiseInterface
     {
         $class = strtolower($model);
         if (!isset($this->metas[$class])) {
-            $this->logger->info('Starting meta for model: ' . $class);
-            $this->metas[$class] = (new Meta($this, $model))->init()->then(
-                function (Meta $meta) use ($class): Meta {
+            $this->logger->info('Starting meta for model: ' . $model);
+            $this->metas[$class] = (new Meta($this, $model))->init();
+            $this->metas[$class]->then(
+                function (Meta $meta) use ($class): PromiseInterface {
                     $this->hydrators[$class] = new Hydrator($meta);
-                    $this->logger->info('Meta for model: ' . $class . ' created');
-                    return $meta;
+                    $this->logger->info('Meta for model: ' . $class . ' initialized. Running finalize');
+                    return $meta->finalize();
                 }
             );
         }
@@ -108,6 +118,7 @@ class Manager implements LoggerAwareInterface
     /**
      * Get model finder
      *
+     * @param class-string<Model> $model
      * @return PromiseInterface<Finder>
      */
     public function getFinder(string $model): PromiseInterface
@@ -148,6 +159,7 @@ class Manager implements LoggerAwareInterface
      * Get changes for model.
      *
      * This will not work if model meta was never loaded.
+     * @return ChangesReturn
      */
     public function getChanges(Model $model): array
     {
@@ -159,6 +171,7 @@ class Manager implements LoggerAwareInterface
      *
      *
      * @see Connections
+     * @param string[] $ops
      */
     public function addConnection(DbalConfig $config, string $for = '*', array $ops = []): static
     {
@@ -178,6 +191,7 @@ class Manager implements LoggerAwareInterface
      * Get connection for model and operation
      *
      * @see Connections
+     * @return PromiseInterface<\Blrf\Dbal\Connection>
      */
     public function getConnection(string $for = '*', string $op = 'NOT_DEFINED_YET'): PromiseInterface
     {
@@ -198,6 +212,9 @@ class Manager implements LoggerAwareInterface
      * Model::find*() called
      *
      * @see Finder
+     * @param class-string<Model> $model
+     * @param FindArguments $arguments
+     * @return PromiseInterface<QueryBuilder|Result|Model>
      */
     public function invokeFind(string $model, string $name, array $arguments): PromiseInterface
     {
@@ -233,11 +250,8 @@ class Manager implements LoggerAwareInterface
      */
     public function getRelatedProxy(Relation $relation, mixed $value): RelatedProxyInterface
     {
-        $className = preg_replace('/[^0-9a-zA-Z]/', '_', $relation->model) . '_Proxy';
-        if (!class_exists($className)) {
-            $this->createRelatedProxyClass($className, $relation->model);
-        }
-        $proxy = new $className();
+        $this->logger->debug('Get related proxy: relation: ' . $relation->type->value . ' model: ' . $relation->model);
+        $proxy = $this->createRelatedProxyClass($relation->model);
         $proxy->setOrmProxyRelation($relation);
         $proxy->setOrmProxyValue($value);
         return $proxy;
@@ -251,14 +265,21 @@ class Manager implements LoggerAwareInterface
      * @see self::getRelatedProxy()
      * @note Uses eval()
      */
-    protected function createRelatedProxyClass(string $className, string $modelClass): void
+    protected function createRelatedProxyClass(string $modelClass): RelatedProxyInterface
     {
-        $interface = RelatedProxyInterface::class;
-        $trait = RelatedProxyTrait::class;
-        $code = 'class ' . $className . ' extends ' . $modelClass . ' implements ' . $interface . ' {' .
-                'use ' . $trait . ';' .
-                '}';
-        eval($code);
+        $className = preg_replace('/[^0-9a-zA-Z]/', '_', $modelClass) . '_Proxy';
+        if (!class_exists($className)) {
+            $interface = RelatedProxyInterface::class;
+            $trait = RelatedProxyTrait::class;
+            $code = 'class ' . $className . ' extends ' . $modelClass . ' implements ' . $interface . ' {' .
+                    'use ' . $trait . ';' .
+                    '}';
+            eval($code);
+        }
+        if (!is_a($className, RelatedProxyInterface::class, true)) {
+            throw new LogicException('Expecting RelatedProxyInterface class: ' . $className);
+        }
+        return new $className();
     }
 
     /**
@@ -275,6 +296,7 @@ class Manager implements LoggerAwareInterface
      * arguments when fetching ONETOMANY related fields.
      *
      * @return PromiseInterface<mixed>
+     * @param FindArguments|array<mixed> $arguments
      */
     public function getModelField(Model $model, string $name, array $arguments): PromiseInterface
     {
@@ -314,7 +336,6 @@ class Manager implements LoggerAwareInterface
                                     $model = $relation->model;
                                     /**
                                      * Arguments get directly passed into find() method.
-                                     * @note We should test how this affects $model->getSomeRelatedField([arguments]).
                                      *
                                      * We should allow user to call
                                      * $model->getSomeRelatedField()->limit(1)->execute(),
@@ -344,7 +365,7 @@ class Manager implements LoggerAwareInterface
                                     }
                                     return $this->getFinder($model)->then(
                                         function (Finder $finder) use ($arguments): PromiseInterface {
-                                            return $finder->find($arguments, false);
+                                            return $finder->find(...$arguments);
                                         }
                                     )->then(
                                         function (
@@ -355,7 +376,7 @@ class Manager implements LoggerAwareInterface
                                             $value
                                         ): PromiseInterface|QueryBuilder {
                                             $qb
-                                                ->andWhere(new Condition($relation->field))
+                                                ->andWhere(new Condition($relation->getField()->column))
                                                 ->addParameter($value);
                                             if ($execute) {
                                                 return $qb->execute();
@@ -374,7 +395,7 @@ class Manager implements LoggerAwareInterface
                             $hydrator = $this->getHydrator($meta->model);
                             $value = $hydrator->getFieldValue($model, $field);
                             if ($value instanceof RelatedProxyInterface) {
-                                return $value->ormProxyResolve($this, $relation)->then(
+                                return $value->ormProxyResolve()->then(
                                     function ($value) use ($hydrator, $model, $field) {
                                         $hydrator->setFieldValue($model, $field, $value);
                                         return $value;
@@ -407,6 +428,7 @@ class Manager implements LoggerAwareInterface
      *
      * @see self::getModelField()
      * @return PromiseInterface<Model>
+     * @param array <string,mixed> $arguments
      */
     public function setModelField(Model $model, string $name, array $arguments): PromiseInterface
     {
@@ -435,6 +457,7 @@ class Manager implements LoggerAwareInterface
      * Convert model to array
      *
      * @return PromiseInterface<array>
+     * @return PromiseInterface<array<string, mixed>>
      */
     public function modelToArray(Model $model, bool $resolveRelated = false): PromiseInterface
     {
@@ -460,6 +483,8 @@ class Manager implements LoggerAwareInterface
      * ```
      *
      * @see Model::assign()
+     * @param array <string, mixed> $data
+     * @return PromiseInterface<Model>
      */
     public function assignModel(Model $model, array $data): PromiseInterface
     {
@@ -507,14 +532,14 @@ class Manager implements LoggerAwareInterface
             }
         )->then(
             function (Connection $db) use (&$metadata, &$values): PromiseInterface {
-                return $db
+                $qb = $db
                     ->query()
                     ->insert((string)$metadata->getSource())
-                    ->values($values)
-                    ->execute();
+                    ->values($values);
+                return $qb->execute();
             }
         )->then(
-            function (Result $res) use (&$metadata, $model) {
+            function (DbalResult $res) use (&$metadata, $model) {
                 if (!empty($res->insertId)) {
                     $this->logger->debug('Received insertId: ' . $res->insertId);
                     /**
@@ -535,6 +560,8 @@ class Manager implements LoggerAwareInterface
     }
 
     /**
+     * Update model
+     *
      * 1. Get meta data
      * 2. Get changes (if none found, return)
      * 3. Get primary or unique columns (if non found, return RuntimeException)
@@ -542,7 +569,8 @@ class Manager implements LoggerAwareInterface
      * 5. Get changed columns and values and run update query
      * 6. Register changes (hydrator->changes)
      * 6. Return model
-     * @todo
+     *
+     * @return PromiseInterface<Model>
      */
     public function updateModel(Model $model): PromiseInterface
     {
@@ -560,7 +588,9 @@ class Manager implements LoggerAwareInterface
                 $metadata = $meta->getData();
                 $index = $metadata->getPrimaryIndex();
                 if ($index === null) {
-                    $index = reset($metadata->getUniqueIndexes());
+                    $unique = $metadata->getUniqueIndexes();
+                    $index = reset($unique);
+                    $index = $index === false ? null : $index;
                 }
                 if ($index === null) {
                     throw new RuntimeException(
@@ -587,7 +617,7 @@ class Manager implements LoggerAwareInterface
                 $conditions = [];
                 foreach ($index->fields as $field) {
                     $conditions[] = new Condition($field->column);
-                    $params[] = $hydrator->getFieldValue($model, $field);
+                    $params[] = $field->decast($hydrator->getFieldValue($model, $field));
                 }
                 assert(!empty($conditions), 'Conditions are empty');
                 assert(!empty($params), 'Parameters are empty');
@@ -602,7 +632,7 @@ class Manager implements LoggerAwareInterface
                     ->execute();
             }
         )->then(
-            function (Result $res) use ($model, &$changes) {
+            function (DbalResult $res) use ($model) {
                 $this->logger->debug('Affected rows: ' . $res->affectedRows);
                 $this->getHydrator($model::class)->changes->store($model);
                 return $model;
@@ -627,6 +657,7 @@ class Manager implements LoggerAwareInterface
      *
      * So for now, if there is primary index and there is a GeneratedValue field, we'll support save(),
      * otherwise we'll return RuntimeException.
+     * @return PromiseInterface<Model>
      */
     public function saveModel(Model $model): PromiseInterface
     {
@@ -634,7 +665,7 @@ class Manager implements LoggerAwareInterface
         $metadata = null;
         $index = null;
         return $this->getMeta($model::class)->then(
-            function (Meta $meta) use ($model, &$metadata, &$index, &$changes): PromiseInterface {
+            function (Meta $meta) use ($model, &$metadata, &$index): PromiseInterface {
                 $metadata = $meta->getData();
                 $index = $metadata->getPrimaryIndex();
                 if ($index === null) {
@@ -686,7 +717,9 @@ class Manager implements LoggerAwareInterface
                 $metadata = $meta->getData();
                 $index = $metadata->getPrimaryIndex();
                 if ($index === null) {
-                    $index = reset($metadata->getUniqueIndexes());
+                    $unique = $metadata->getUniqueIndexes();
+                    $index = reset($unique);
+                    $index = ($index === false ? null : $index);
                 }
                 if ($index === null) {
                     throw new RuntimeException(
@@ -714,7 +747,7 @@ class Manager implements LoggerAwareInterface
                     ->execute();
             }
         )->then(
-            function (Result $res) use ($model): bool {
+            function (DbalResult $res) use ($model): bool {
                 /**
                  * Destroy changes for object
                  */

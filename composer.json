@@ -6,7 +6,7 @@
     "minimum-stability": "dev",
     "require": {
         "php": ">=8.1.0",
-        "blrf/dbal": "dev-main",
+        "blrf/dbal": "^1",
         "psr/container": "^2.0",
         "psr/log": "^3.0",
         "react/async": "^4.2"
@@ -18,6 +18,7 @@
         }
     },
     "require-dev": {
-        "phpunit/phpunit": "^11.0"
+        "phpunit/phpunit": "^11.0",
+        "phpstan/phpstan": "2.0.x-dev"
     }
 }

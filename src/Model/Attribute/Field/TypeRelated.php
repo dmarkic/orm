@@ -5,28 +5,23 @@ declare(strict_types=1);
 namespace Blrf\Orm\Model\Attribute\Field;
 
 use Blrf\Orm\Model\Attribute\Field;
+use ValueError;
 
 /**
  * Relation field
  */
 class TypeRelated extends BaseType
 {
-    public function __construct(
-        Field $field,
-        bool $isNull = false
-    ) {
-        parent::__construct(
-            type: Type::RELATED,
-            isNull: $isNull,
-            field: $field
-        );
-    }
-
     /**
-     * No casting at the moment
+     * Factory
+     *
+     * Field is nullable, because isNull has default false value.
      */
-    public function cast(mixed $value): mixed
+    public static function factory(?Field $field = null, bool $isNull = false): self
     {
-        return $value;
+        if ($field === null) {
+            throw new ValueError('Field must be set');
+        }
+        return new self(type: Type::RELATED, field: $field, isNull: $isNull);
     }
 }

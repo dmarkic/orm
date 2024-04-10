@@ -40,12 +40,12 @@ abstract class Driver implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
 
-    public static function factory(Meta $meta): static
+    public static function factory(Meta $meta): Driver
     {
         /**
          * Check if driver is set in factory
          */
-        $driverClass = Factory::getModelMetaDriver($meta);
+        $driverClass = Factory::getModelMetaDriver();
         if ($driverClass) {
             Factory::getLogger()->info('Found ' . $driverClass . ' for model: ' . $meta->model . ' in factory');
             return new $driverClass($meta);
@@ -55,7 +55,7 @@ abstract class Driver implements LoggerAwareInterface
          */
         if (method_exists($meta->model, 'ormMetaData')) {
             Factory::getLogger()->info(
-                'Found ' . DiverModel::class . ' for model: ' . $meta->model . ' with ormMetaData() method'
+                'Found ' . DriverModel::class . ' for model: ' . $meta->model . ' with ormMetaData() method'
             );
             return new DriverModel($meta);
         }

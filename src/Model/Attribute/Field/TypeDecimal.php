@@ -14,14 +14,14 @@ namespace Blrf\Orm\Model\Attribute\Field;
  */
 class TypeDecimal extends BaseType
 {
-    public function __construct(
+    public static function factory(
         int $precision = 12,
         int $scale = 2,
         ?float $min = 0,
         ?float $max = 0xffffffff,
         bool $isNull = false
-    ) {
-        parent::__construct(
+    ): self {
+        return new self(
             type: Type::DECIMAL,
             precision: $precision,
             scale: $scale,
@@ -29,13 +29,5 @@ class TypeDecimal extends BaseType
             max: $max,
             isNull: $isNull
         );
-    }
-
-    /**
-     * No casting is performed
-     */
-    public function cast(mixed $value): mixed
-    {
-        return $value;
     }
 }

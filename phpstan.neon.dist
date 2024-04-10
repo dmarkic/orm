@@ -1,0 +1,11 @@
+parameters:
+    level: 6
+    ignoreErrors:
+        # To support psr-11 without set method
+        - '#Call to an undefined method Psr\\Container\\ContainerInterface::set\(\)#'
+
+    paths:
+        - src/
+
+    fileExtensions:
+        - php

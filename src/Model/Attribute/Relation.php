@@ -17,6 +17,7 @@ class Relation extends BaseAttribute
     public readonly Relation\Type $type;
     /**
      * Related model
+     * @var class-string<\Blrf\Orm\Model>
      */
     public readonly string $model;
     /**
@@ -35,6 +36,9 @@ class Relation extends BaseAttribute
     public readonly string $alias;
 
 
+    /**
+     * @param class-string<\Blrf\Orm\Model> $model
+     */
     public function __construct(
         Relation\Type|string $type,
         string $model,

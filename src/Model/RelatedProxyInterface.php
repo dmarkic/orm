@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Blrf\Orm\Model;
 
+use Blrf\Orm\Model;
 use Blrf\Orm\Model\Attribute\Relation;
 use React\Promise\PromiseInterface;
 
@@ -15,9 +16,10 @@ use React\Promise\PromiseInterface;
  */
 interface RelatedProxyInterface
 {
-    public function setOrmProxyValue(mixed $value);
-    public function getOrmProxyValue();
-    public function setOrmProxyRelation(Relation $relation);
+    public function setOrmProxyValue(mixed $value): void;
+    public function getOrmProxyValue(): mixed;
+    public function setOrmProxyRelation(Relation $relation): void;
     public function getOrmProxyRelation(): Relation;
+    /** @return PromiseInterface<Model> */
     public function ormProxyResolve(): PromiseInterface;
 }

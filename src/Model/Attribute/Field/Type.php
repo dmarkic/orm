@@ -2,24 +2,48 @@
 
 namespace Blrf\Orm\Model\Attribute\Field;
 
+use Blrf\Orm\Model\Attribute\Field;
 use ucfirst;
 use class_exists;
 use assert;
-use InvalidArgumentException;
 use LogicException;
+use ValueError;
 
+/**
+ * Rewrite types
+ *
+ * You can always do new TypeDecimal(...).
+ *
+ * But you could always call:
+ *
+ * Type::fromArray($data) <- where type is specified in array key type
+ * Type::fromString(string $type, array $data), which would basically call Type::fromArray()
+ *
+ * But at the end it's all about attributes:
+ *
+ * #[Attr\Field('name', 'int')] // default properties of type are used
+ * #[Attr\Field('name', ['type' => 'int', ...])] // you can change properties of type
+ *
+ * Since we are using BaseType constructor, we create factory() methods, that will
+ * accept certain arguments specific to the type. And we get rid of BaseType::fromArray, fromString.
+ *
+ */
 enum Type: string
 {
     case INT = 'int';
     case FLOAT = 'float';
     case STRING = 'string';
-    case BOOL = 'bool';
-    case ARRAY = 'array';
+    case ENUM = 'enum';
     case DECIMAL = 'decimal';
     case DATETIME = 'datetime';
     case DATE = 'date';
     case RELATED = 'related';
 
+    /**
+     *
+     * @param Type $type
+     * @return class-string<BaseType>
+     */
     protected static function getClassName(Type $type): string
     {
         $type = ucfirst($type->value);
@@ -27,26 +51,36 @@ enum Type: string
         if (class_exists($class)) {
             return $class;
         }
-        throw new LogicException('Unknown type: ' . $type);
+        throw new LogicException('Type class does not exist: ' . $type); // @codeCoverageIgnore
     }
 
     /**
      * Create field type from array
      *
-     * $data array should atleast have `type`. Other array keys and values
-     * are forwarded to type constructor as named arguments.
+     * @param array{
+     *      type?: string,
+     *      min?:int|float|null,
+     *      max?:int|float|null,
+     *      precision?:int|null,
+     *      scale?:int|null,
+     *      isNull?:bool,
+     *      options?:string[],
+     *      format?:string,
+     *      field?:Field
+     * } $data
      */
     public static function fromArray(array $data): BaseType
     {
         if (!isset($data['type'])) {
-            throw new InvalidArgumentException('Missing type');
+            throw new ValueError('Array is missing type key');
         }
         $type = $data['type'];
         if (is_string($type)) {
             $type = self::from(strtolower($type));
         }
+        unset($data['type']);
         $class = self::getClassName($type);
-        return $class::fromArray($data);
+        return $class::factory(...$data);
     }
 
     /**
@@ -58,14 +92,12 @@ enum Type: string
      * $type = Type::fromString('string', min: 10);
      * ```
      */
-    public static function fromString(Type|string $type, ...$arguments): BaseType
+    public static function fromString(Type|string $type): BaseType
     {
-        // if called directly with array (fromString('int', ['...']))
-        $arguments = $arguments[0] ?? $arguments;
         if (is_string($type)) {
             $type = self::from(strtolower($type));
         }
         $class = self::getClassName($type);
-        return $class::fromString($arguments);
+        return $class::factory();
     }
 }

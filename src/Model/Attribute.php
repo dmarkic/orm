@@ -20,9 +20,7 @@ abstract class Attribute implements JsonSerializable
             'attrName'  => get_class($this)
         ];
         foreach ($ref->getProperties() as $prop) {
-            //if ($prop->isAccessible()) {
-                $ret[$prop->getName()] = $prop->isInitialized($this) ? $prop->getValue($this) : null;
-            //}
+            $ret[$prop->getName()] = $prop->isInitialized($this) ? $prop->getValue($this) : null;
         }
         return $ret;
     }

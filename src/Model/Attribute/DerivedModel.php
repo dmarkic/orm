@@ -3,6 +3,7 @@
 namespace Blrf\Orm\Model\Attribute;
 
 use Blrf\Orm\Model\Attribute\Model as ModelAttr;
+use Blrf\Orm\Model;
 use Attribute;
 
 /**
@@ -16,6 +17,9 @@ use Attribute;
 #[Attribute(Attribute::TARGET_CLASS)]
 class DerivedModel extends ModelAttr
 {
+    /**
+     * @param class-string<Model> $model
+     */
     public function __construct(public readonly string $model)
     {
     }

@@ -11,6 +11,9 @@ use Blrf\Orm\Model\Meta\Data\NamingStrategy\SnakeCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use DateTime;
+use DateTimeImmutable;
+use ValueError;
 
 /**
  * Orm factory that uses Container (psr-11) to obtain required objects:
@@ -18,13 +21,17 @@ use Psr\Log\NullLogger;
  * - blrf.orm.manager: Get Orm manager (self::getModelManager())
  * - blrf.orm.meta.driver: Get Orm meta driver (self::getModelMetaDriver())
  * - blrf.orm.meta.naming: Get orm meta data naming strategy (self::getModelMetaNaming())
+ * - blrf.orm.datetime.class: Default class for datetime fields (Should extend \DateTime)
+ * - blrf.orm.datetime.format: Default date-time format (For datetime type)
+ * - blrf.orm.datetime.format.time: Default time format (not used at the moment)
+ * - blrf.orm.datetime.format.date: Default date format (for date type)
  * - blrf.orm.logger: Get logger: self::getLogger()
  */
 abstract class Factory implements FactoryInterface
 {
     protected static ?ContainerInterface $container = null;
 
-    public static function setContainer(?ContainerInterface $container)
+    public static function setContainer(?ContainerInterface $container): void
     {
         self::$container = $container;
     }
@@ -54,6 +61,7 @@ abstract class Factory implements FactoryInterface
 
     /**
      * Get model meta driver class
+     * @return class-string<MetaDriver>
      */
     public static function getModelMetaDriver(): ?string
     {
@@ -81,6 +89,59 @@ abstract class Factory implements FactoryInterface
             return $container->get($id);
         }
         return new SnakeCase();
+    }
+
+    /** @return class-string<\DateTime|\DateTimeImmutable> Cannot return DateTimeInterface as we need createFromFormat */
+    public static function getDateTimeClass(): string
+    {
+        $container = self::getContainer();
+        $id = 'blrf.orm.datetime.class';
+        if ($container->has($id)) {
+            $ret = $container->get($id);
+            if (!is_string($ret)) {
+                throw new ValueError('blrf.orm.datetime.class should be class-string');
+            }
+            if (!is_a($ret, DateTime::class, true) && !is_a($ret, DateTimeImmutable::class, true)) {
+                throw new ValueError('Class: ' . $ret . ' should extend from DateTime or DateTimeImmutable class');
+            }
+            return $ret;
+        }
+        return DateTimeImmutable::class;
+    }
+
+    public static function getDateTimeFormat(): string
+    {
+        $container = self::getContainer();
+        $id = 'blrf.orm.datetime.format';
+        if ($container->has($id)) {
+            return $container->get($id);
+        }
+        return 'Y-m-d H:i:s';
+    }
+
+    public static function getDateTimeDateFormat(): string
+    {
+        $container = self::getContainer();
+        $id = 'blrf.orm.datetime.format.date';
+        if ($container->has($id)) {
+            return $container->get($id);
+        }
+        return '!Y-m-d';
+    }
+
+    /**
+     * Get time format
+     *
+     * Not used anywhere at the moment.
+     */
+    public static function getDateTimeTimeFormat(): string
+    {
+        $container = self::getContainer();
+        $id = 'blrf.orm.datetime.format.time';
+        if ($container->has($id)) {
+            return $container->get($id);
+        }
+        return 'H:i:s';
     }
 
     /**

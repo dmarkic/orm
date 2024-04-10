@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Blrf\Orm\Model;
 
 use Blrf\Dbal\Connection;
-use Blrf\Dbal\Result as DbalResult;
-use Blrf\Dbal\Query\Type as QueryType;
 use Blrf\Dbal\Query\Condition;
 use Blrf\Dbal\Query\ConditionGroup;
 use Blrf\Dbal\Query\ConditionType;
+use Blrf\Dbal\Query\FromExpression;
+use Blrf\Dbal\Query\OrderByExpression;
+use Blrf\Dbal\Query\SelectExpression;
 use Blrf\Orm\Model;
 use Blrf\Orm\Factory;
 use Blrf\Orm\Model\Attribute\Field;
@@ -25,6 +26,12 @@ use function React\Promise\reject;
 
 /**
  * Model finder
+ *
+ * @phpstan-type FindArguments array{
+ *      order?:array<mixed>|string,
+ *      limit?:array{limit?: int|null, offset?: int|null}|int|null,
+ *      offset?:int
+ * }
  */
 class Finder implements LoggerAwareInterface
 {
@@ -37,59 +44,72 @@ class Finder implements LoggerAwareInterface
     }
 
     /**
-     * Start or execute find on model
+     * Start find
      *
-     * Arguments are the same as for QueryBuilder fromArray method
+     * This will setup the QueryBuilder to perform select on current model.
      *
-     * Model is always prefixed with '\' and field delimited with '.'.
+     * Certain stuff will be available to be provided as arguments to find. To support
+     * where query, we should probably be able to parse the where query.
      *
-     * - \Model.field
+     * Arguments would look like this:
+     * 0 => 'where query',
+     * 'key' => 'value'
+     * where keys are various SQL expression (limit, order,...)
      *
-     * By default it will return QueryBuilder which is setup to query all fields
-     * from model and you have to call execute() on it to run query.
-     *
-     * If $execute is true, it will execute query immediately.
-     *
-     * If you want to search for all models via Model::find() you have to call it with
-     * Model::find(true) to immediatelly execute query otherwise Model::find() will start QueryBuilder.
-     *
-     * @todo Create Model::findAll() to immediately execute query.
-     *
-     * @return PromiseInterface<QueryBuilder|Result>
+     * @param FindArguments $arguments
+     * @return PromiseInterface<QueryBuilder>
      */
-    public function find(array $arguments = [], bool $execute = false): PromiseInterface
+    public function find(array $arguments = []): PromiseInterface
     {
-        $this->logger->debug('Find model: ' . $this->meta->model);
-        if (isset($arguments[0])) {
-            $arguments = $arguments[0];
-            if (is_bool($arguments)) {
-                $execute = $arguments;
-                $arguments = [];
-            }
-        }
-        $arguments = $arguments[0] ?? $arguments; // when called via Model::find*
-        $arguments['class'] = $arguments['class'] ?? QueryBuilder::class;
-        $arguments['type'] = QueryType::SELECT;
-        $arguments['from'] = $arguments['from'] ?? '\\' . $this->meta->model;
-        if (!isset($arguments['select'])) {
-            $arguments['select'] = array_map(
-                fn(Field $field) => '\\' . $this->meta->model . '.' . $field->name,
-                array_filter(
-                    $this->meta->getData()->getFields(),
-                    fn(Field $field) => $field->type->type !== Field\Type::RELATED
-                )
-            );
-        }
-        if (!is_array($arguments['from'])) {
-            $arguments['from'] = [$arguments['from']];
-        }
+        $this->logger->debug('find() with argument keys: ' . implode(', ', array_keys($arguments)));
         return $this->meta->manager->getConnection($this->meta->model, 'find')->then(
-            function (Connection $connection) use ($arguments, $execute): PromiseInterface|QueryBuilder {
-                $qb = QueryBuilder::fromArray($arguments, $connection, $this->meta);
-                if ($execute) {
-                    return $qb->execute();
+            function (Connection $connection) use ($arguments): QueryBuilder {
+                /**
+                 * Only joined table will have aliases, when we get there.
+                 */
+                $metadata = $this->meta->getData();
+                $source = $metadata->getSource();
+                $alias = $source->name;
+                $qb = $connection->query();
+                $select = array_map(
+                    fn(Field $field) => new SelectExpression($alias . '.' . $field->column, $field->column),
+                    array_filter(
+                        $metadata->getFields(),
+                        fn(Field $field) => $field->type->type != Field\Type::RELATED
+                    )
+                );
+                $qb->select(...$select);
+                $qb->from(new FromExpression((string)$source, $alias));
+                /**
+                 * order argument
+                 */
+                if (isset($arguments['order'])) {
+                    if (is_array($arguments['order'])) {
+                        foreach ($arguments['order'] as $order) {
+                            if (is_array($order)) {
+                                $qb->addOrderByExpression(OrderByExpression::fromArray($order));
+                            } elseif (is_string($order)) {
+                                $qb->addOrderbyExpression(OrderByExpression::fromString($order));
+                            }
+                        }
+                    } elseif (is_string($arguments['order'])) {
+                        $qb->addOrderByExpression(OrderByExpression::fromString($arguments['order']));
+                    }
                 }
-                return $qb;
+                /**
+                 * limit, offset argument
+                 */
+                if (isset($arguments['limit'])) {
+                    if (is_array($arguments['limit'])) {
+                        $limitArg = $arguments['limit'];
+                    } else {
+                        $limitArg = $arguments;
+                    }
+                    $limit = isset($limitArg['limit']) ? (int)$limitArg['limit'] : null;
+                    $offset = isset($limitArg['offset']) ? (int)$limitArg['offset'] : null;
+                    $qb->limit($limit, $offset);
+                }
+                return new QueryBuilder($qb, $this->meta);
             }
         );
     }
@@ -98,15 +118,22 @@ class Finder implements LoggerAwareInterface
      * Find all
      *
      * Same as Model::find(true)
+     * @param FindArguments $arguments
+     * @return PromiseInterface<Result>
      */
     public function findAll(array $arguments = []): PromiseInterface
     {
-        return $this->find([], true);
+        return $this->find($arguments)->then(
+            function (QueryBuilder $qb): PromiseInterface {
+                return $qb->execute();
+            }
+        );
     }
     /**
      * Find model by primary key(s)
      *
      * @see self::find()
+     * @param array<mixed> $arguments
      * @return PromiseInterface<Model>
      */
     public function findByPk(array $arguments): PromiseInterface
@@ -128,7 +155,7 @@ class Finder implements LoggerAwareInterface
         if ($primaryIndex === null) {
             return reject(
                 new BadMethodCallException(
-                    'findByPk: model: ' . $model::class . ' has no primary index'
+                    'findByPk: model: ' . $model . ' has no primary index'
                 )
             );
         }
@@ -139,7 +166,7 @@ class Finder implements LoggerAwareInterface
         if ($fieldsCount != $argumentsCount) {
             return reject(
                 new ArgumentCountError(
-                    'findByPk: ' . $model::class . ' expecting ' . $fieldsCount . ', ' .
+                    'findByPk: ' . $model . ' expecting ' . $fieldsCount . ', ' .
                     'received ' . $argumentsCount . ' argument(s)'
                 )
             );
@@ -157,13 +184,14 @@ class Finder implements LoggerAwareInterface
                     ->execute();
             }
         )->then(
-            function (Result $result) use ($model, $arguments) {
-                if (count($result) == 0) {
+            function (Result $result) use ($model, $arguments): Model {
+                $ret = $result->first();
+                if ($ret === null) {
                     throw new NotFoundException(
                         'No such model ' . $model . ' in database: primaryKey(s): ' . implode(',', $arguments)
                     );
                 }
-                return $result->first();
+                return $ret;
             }
         );
     }
@@ -174,6 +202,8 @@ class Finder implements LoggerAwareInterface
      * Arguments:
      *
      * - field => value
+     * @param array<mixed> $arguments
+     * @return PromiseInterface<Model>
      */
     public function findFirstBy(array $arguments): PromiseInterface
     {
@@ -189,7 +219,7 @@ class Finder implements LoggerAwareInterface
             $field = $metadata->getField($fieldName);
             if ($field === null) {
                 return reject(
-                    new BadMethodCallException('No such field: ' . $field . ' in model ' . $meta->model)
+                    new BadMethodCallException('No such field: ' . $fieldName . ' in model ' . $model)
                 );
             }
             $conditions[] = new Condition($field->column);
@@ -204,13 +234,14 @@ class Finder implements LoggerAwareInterface
                     ->execute();
             }
         )->then(
-            function (Result $result) use ($model, $arguments) {
-                if (count($result) == 0) {
+            function (Result $result) use ($model, $arguments): Model {
+                $ret = $result->first();
+                if ($ret === null) {
                     throw new NotFoundException(
                         'No such model ' . $model . ' in database: primaryKey(s): ' . implode(',', $arguments)
                     );
                 }
-                return $result->first();
+                return $ret;
             }
         );
     }

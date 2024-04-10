@@ -19,6 +19,8 @@ use function React\Promise\reject;
 /**
  * Abstract model
  *
+ * @phpstan-import-type FindArguments from Model\Finder
+ *
  */
 abstract class Model implements JsonSerializable
 {
@@ -26,6 +28,9 @@ abstract class Model implements JsonSerializable
      * Support static call
      *
      * Static method: find*()
+     *
+     * @param FindArguments $arguments
+     * @return PromiseInterface<Model\QueryBuilder|Model\Result|Model>
      */
     public static function __callStatic(string $name, array $arguments): PromiseInterface
     {
@@ -40,6 +45,9 @@ abstract class Model implements JsonSerializable
      *
      * - get* field
      * - set* field
+     *
+     * @param FindArguments|array<mixed> $arguments
+     * @return PromiseInterface<mixed>
      */
     public function __call(string $name, array $arguments): PromiseInterface
     {
@@ -55,6 +63,7 @@ abstract class Model implements JsonSerializable
      * Convert model to array
      *
      * @see Hydrator::toArray()
+     * @return PromiseInterface<array<mixed>>
      */
     public function toArray(bool $resolveRelated = false): PromiseInterface
     {
@@ -76,6 +85,7 @@ abstract class Model implements JsonSerializable
      * Assign data to model
      *
      * @return PromiseInterface<Model>
+     * @param array<mixed> $data
      */
     public function assign(array $data): PromiseInterface
     {

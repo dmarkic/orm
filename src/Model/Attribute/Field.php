@@ -31,7 +31,7 @@ class Field extends BaseAttribute
     public readonly Field\BaseType $type;
     /**
      * Field attributes
-     *
+     * @var array<int, BaseAttribute>
      */
     public readonly array $attributes;
     /**
@@ -55,9 +55,9 @@ class Field extends BaseAttribute
      * Construct new field
      *
      * @param string $name Field name (or model object property)
-     * @param $type Basic field type
+     * @param Field\BaseType|array{'type': string}|string $type Basic field type
      * @param string $column Column in database table (if null, same as name)
-     * @param BaseAttribute $attributes List of attributes for field
+     * @param BaseAttribute $attribute List of attributes for field
      */
     public function __construct(
         string $name,
@@ -74,7 +74,7 @@ class Field extends BaseAttribute
         }
         $this->type = $type;
         // assign attributes
-        $this->attributes = $attribute;
+        $this->attributes = array_values($attribute);
         // check attributes and assign:
         // - relation
         // - generated value
@@ -157,13 +157,11 @@ class Field extends BaseAttribute
                      * Create related proxy object
                      */
                     return Factory::getModelManager()->getRelatedProxy($this->relation, $value);
-                    break;
                 case Relation\Type::ONETOMANY:
                     /**
                      * This field is one to many related, so normal casting is performed.
                      */
                     return $this->type->cast($value);
-                    break;
                 default:
                     // @codeCoverageIgnoreStart
                     throw new LogicException(

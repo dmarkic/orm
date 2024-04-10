@@ -3,3 +3,11 @@
 ## main-dev (2024-03-17)
 
 - Initial commit
+
+## main-dev (2024-04-10)
+
+- PHPStan level 6
+- Github workflow
+- More tests
+- Field type rewrite
+- Lots of other changes

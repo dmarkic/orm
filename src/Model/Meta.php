@@ -14,6 +14,9 @@ use React\Promise\PromiseInterface;
  * Model meta
  *
  * Uses Driver to obtain Meta data.
+ *
+ * To avoid loops in related fields, we run finalize after data was read.
+ * @see Meta\Data::finalize();
  */
 class Meta implements LoggerAwareInterface
 {
@@ -21,6 +24,7 @@ class Meta implements LoggerAwareInterface
 
     protected Meta\Data $data;
 
+    /** @param class-string<Model> $model */
     public function __construct(
         public readonly Manager $manager,
         public readonly string $model
@@ -42,6 +46,16 @@ class Meta implements LoggerAwareInterface
         )->then(
             function (Meta\Data $data) {
                 $this->data = $data;
+                return $this;
+            }
+        );
+    }
+
+    /** @return PromiseInterface<Meta> */
+    public function finalize(): PromiseInterface
+    {
+        return $this->data->finalize()->then(
+            function () {
                 return $this;
             }
         );

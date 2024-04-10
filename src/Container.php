@@ -15,6 +15,10 @@ use Psr\Container\ContainerInterface;
  */
 class Container implements ContainerInterface
 {
+    /**
+     * Container data
+     * @var array<mixed>
+     */
     protected array $data = [];
 
     /**
@@ -41,7 +45,7 @@ class Container implements ContainerInterface
     /**
      * Set container entry
      */
-    public function set(string $id, mixed $value)
+    public function set(string $id, mixed $value): void
     {
         $this->data[$id] = $value;
     }

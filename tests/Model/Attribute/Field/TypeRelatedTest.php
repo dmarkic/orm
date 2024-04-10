@@ -8,25 +8,24 @@ use Blrf\Orm\Model\Attribute\Field\BaseType;
 use Blrf\Orm\Model\Attribute\Field\Type;
 use Blrf\Orm\Model\Attribute\Field\TypeRelated;
 use PHPUnit\Framework\Attributes\CoversClass;
+use ValueError;
 
+#[CoversClass(Type::class)]
 #[CoversClass(BaseType::class)]
 #[CoversClass(TypeRelated::class)]
 class TypeRelatedTest extends TestCase
 {
-    public function testDefaultConstruct()
+    public function testFactory()
     {
         $field = $this->createMock(Field::class);
-        $type = new TypeRelated($field);
-        $this->assertNull($type->min);
-        $this->assertNull($type->max);
+        $type = TypeRelated::factory($field);
+        $this->assertSame($type->field, $field);
         $this->assertFalse($type->isNull);
-        $this->assertSame(Type::RELATED, $type->type);
     }
 
-    public function testCast()
+    public function testFactoryFieldIsNullThrowsValueError()
     {
-        $field = $this->createMock(Field::class);
-        $type = new TypeRelated($field);
-        $this->assertSame('2', $type->cast('2'));
+        $this->expectException(ValueError::class);
+        $type = TypeRelated::factory();
     }
 }

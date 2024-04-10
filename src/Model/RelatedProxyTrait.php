@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Blrf\Orm\Model;
 
 use Blrf\Orm\Factory;
+use Blrf\Orm\Model;
 use Blrf\Orm\Model\Attribute\Relation;
 use React\Promise\PromiseInterface;
 
@@ -25,7 +26,7 @@ trait RelatedProxyTrait
      */
     private ?Relation $ormProxyRelation;
 
-    public function setOrmProxyValue(mixed $value)
+    public function setOrmProxyValue(mixed $value): void
     {
         $this->ormProxyValue = $value;
     }
@@ -35,7 +36,7 @@ trait RelatedProxyTrait
         return $this->ormProxyValue;
     }
 
-    public function setOrmProxyRelation(Relation $relation)
+    public function setOrmProxyRelation(Relation $relation): void
     {
         $this->ormProxyRelation = $relation;
     }

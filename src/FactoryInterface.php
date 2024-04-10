@@ -11,9 +11,16 @@ use Psr\Log\LoggerInterface;
 
 interface FactoryInterface
 {
-    public static function setContainer(ContainerInterface $container);
+    /**
+     * Set PSR-11 container
+     */
+    public static function setContainer(ContainerInterface $container): void;
 
+    /**
+     * Get PSR-11 active container
+     */
     public static function getContainer(): ContainerInterface;
+
     /**
      * Get model manager instance
      */
@@ -23,6 +30,22 @@ interface FactoryInterface
      * Get model meta driver class
      */
     public static function getModelMetaDriver(): ?string;
+
+    /**
+     * Get default date-time class
+     */
+    public static function getDateTimeClass(): string;
+
+    /**
+     * Get default datetime date format
+     */
+    public static function getDateTimeDateFormat(): string;
+
+    /**
+     * Get default datetime time format
+     */
+    public static function getDateTimeTimeFormat(): string;
+
     /**
      * Get logger instance
      */

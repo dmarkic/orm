@@ -22,11 +22,14 @@ use function React\Promise\resolve;
  * Model (de)Hydrator
  *
  * It uses PHP Reflection to get/set property values.
+ *
+ * @phpstan-import-type ChangesReturn from Changes
  */
 class Hydrator implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
 
+    /** @var ReflectionClass<Model> */
     protected ReflectionClass $ref;
     public readonly Changes $changes;
     /**
@@ -56,6 +59,7 @@ class Hydrator implements LoggerAwareInterface
         return $this->props[$name];
     }
 
+    /** @return ChangesReturn */
     public function getChanges(Model $model): array
     {
         assert($model::class === $this->meta->model, 'Wrong model: ' . $model::class . ' != ' . $this->meta->model);
@@ -85,6 +89,7 @@ class Hydrator implements LoggerAwareInterface
      * @see Meta\Driver\Attribute
      * @note Not yet tested/supported via Meta\Driver\Model
      *
+     * @param array<string, mixed> $data
      * @param bool $changes Remember values in Changes (if loaded from database)
      */
     public function hydrate(Model $model, MetaData $metadata, array $data, bool $changes = false): Model
@@ -122,15 +127,22 @@ class Hydrator implements LoggerAwareInterface
      * Convert object to database values
      *
      * Uses Field::decast() to cast value to database value.
-     * @return array [field => value, ...]
+     * @return array<string, mixed>
      */
     public function dehydrate(Model $model): array
     {
+        $this->logger->debug('Dehydrate model: ' . $model::class);
         $ret = [];
         foreach ($this->meta->getData()->getFields() as $field) {
-            $value = $this->getFieldValue($model, $field);
-            $value = $field->decast($value);
-            $ret[$field->column] = $value;
+            $this->logger->debug('Dehydrate field: ' . $field->name . ' type: ' . $field->type->type->value);
+            /**
+             * Skip related fields
+             */
+            if ($field->type->type != Field\Type::RELATED) {
+                $value = $this->getFieldValue($model, $field);
+                $value = $field->decast($value);
+                $ret[$field->column] = $value;
+            }
         }
         return $ret;
     }
@@ -175,6 +187,7 @@ class Hydrator implements LoggerAwareInterface
      * fields will be resolved into arrays already.
      *
      * @param bool $resolveRelated attempt to resolve related models
+     * @return PromiseInterface<array<string, mixed>|array<void>>
      */
     public function toArray(Model $model, MetaData $data, bool $resolveRelated = false): PromiseInterface
     {
@@ -206,8 +219,8 @@ class Hydrator implements LoggerAwareInterface
                      * {"date": ..., "timezone_type": ..., "timezone": ...}.
                      *
                      * If user would want a simple "datetime", it should implement it's own
-                     * DateTime and define it in TypeDateTime which accepts the $datetimeClass
-                     * argument.
+                     * DateTime and use Factory::setDateTimeClass() to change default class which
+                     * implements different jsonSerialize() method.
                      */
                     $ret[$field->name] = $value;
                 }
@@ -220,6 +233,7 @@ class Hydrator implements LoggerAwareInterface
             return \React\Promise\all($promises)->then(
                 function (array $result): PromiseInterface {
                     $manager = Factory::getModelManager();
+                    $promises = [];
                     foreach ($result as $fieldName => $fieldValue) {
                         $this->logger->debug('fieldName: ' . $fieldName);
                         /**

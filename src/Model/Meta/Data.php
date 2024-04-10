@@ -15,6 +15,7 @@ use Blrf\Orm\Model\Attribute\Relation;
 use React\Promise\PromiseInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
+use LogicException;
 use JsonSerializable;
 use RuntimeException;
 use assert;
@@ -41,7 +42,7 @@ class Data implements LoggerAwareInterface, JsonSerializable
     protected Source $source;
     /**
      * List of fields
-     * @var array
+     * @var Field[]
      */
     protected array $fields = [];
     /**
@@ -52,7 +53,7 @@ class Data implements LoggerAwareInterface, JsonSerializable
     protected ?Field $generatedValueField = null;
     /**
      * List of indexes
-     * @var array<Index>
+     * @var Index[]
      */
     protected array $indexes = [];
     /**
@@ -61,7 +62,7 @@ class Data implements LoggerAwareInterface, JsonSerializable
     protected ?Index $primaryIndex = null;
     /**
      * List of unique indexes
-     * @var array
+     * @var Index[]
      */
     protected array $uniqueIndexes = [];
 
@@ -78,6 +79,7 @@ class Data implements LoggerAwareInterface, JsonSerializable
     /**
      * json_encode()
      *
+     * @return array{source:Source|null, fields: Field[], indexes: Index[]}
      */
     public function jsonSerialize(): array
     {
@@ -95,7 +97,9 @@ class Data implements LoggerAwareInterface, JsonSerializable
      * from related model.
      *
      * This could cause loops if Models are related between each other.
+     * ** THIS IS CAUSING LOOP ON CustomerAddress **!!!
      *
+     * @return PromiseInterface<self>
      */
     public function finalize(): PromiseInterface
     {
@@ -104,17 +108,24 @@ class Data implements LoggerAwareInterface, JsonSerializable
         foreach ($this->fields as $field) {
             $relation = $field->getRelation();
             if ($relation) {
-                $this->logger->debug(' > found relation in field: ' . $field->name);
+                $this->logger->debug(
+                    ' > found relation in field: ' . $relation->model . '::' . $relation->field . ' ' .
+                    'from model: ' . $this->meta->model
+                );
                 $promises[] = Factory::getModelManager()->getMeta($relation->model)->then(
-                    function (Meta $meta) use ($field, $relation) {
+                    function (Meta $meta) use ($relation) {
                         $this->logger->debug(' << received metadata for relation: ' . $relation->model);
                         $metadata = $meta->getData();
-                        $relation->setField($metadata->getField($relation->field));
+                        $mdField = $metadata->getField($relation->field);
+                        if ($mdField === null) {
+                            throw new LogicException('No such field: ' . $relation->field . ' in ' . $relation->model);
+                        }
+                        $relation->setField($mdField);
                     }
                 );
             }
         }
-        $this->logger->debug('Got ' . count($promises) . ' relation(s) to solve');
+        $this->logger->debug('Got ' . count($promises) . ' relation(s) to solve for ' . $this->meta->model);
         if (count($promises) > 0) {
             return \React\Promise\all($promises)->then(
                 function () {
@@ -207,7 +218,7 @@ class Data implements LoggerAwareInterface, JsonSerializable
                 $this->addField(
                     new Field(
                         $attr->alias,
-                        new Field\TypeRelated($field),
+                        Field\TypeRelated::factory($field), // missing isNull??
                         null,
                         // only include the related attribute
                         $attr
@@ -221,6 +232,7 @@ class Data implements LoggerAwareInterface, JsonSerializable
     /**
      * Create and add field
      *
+     * @param Field\BaseType|string|array{type:string} $type
      */
     public function createField(
         string $name,
@@ -245,6 +257,8 @@ class Data implements LoggerAwareInterface, JsonSerializable
 
     /**
      * Get all fields
+     *
+     * @return Field[]
      */
     public function getFields(): array
     {
@@ -297,17 +311,24 @@ class Data implements LoggerAwareInterface, JsonSerializable
      * Fields must already exist!
      *
      * @throws RuntimeException if field is unknown or field object is not valid
+     * @param string[]|Field[] $fields
      */
     public function createIndex(Index\Type|string $type, array $fields, string $name = 'INDEX'): static
     {
+        if (empty($fields)) {
+            throw new RuntimeException('Index expects atleast one field');
+        }
         foreach ($fields as $fidx => $field) {
             if (is_string($field)) {
                 $fields[$fidx] = $this->fields[$field] ?? null;
                 if ($fields[$fidx] === null) {
                     throw new RuntimeException('Cannot add index: unknown field: ' . $field);
                 }
-            } elseif (!($field instanceof Field)) {
-                throw new RuntimeException('Cannot add index: invalid field object: ' . get_class($field));
+            }
+        }
+        foreach ($fields as $idx => $field) {
+            if (!($field instanceof Field)) {
+                throw new RuntimeException('Field at index: ' . $idx . ' not Field object');
             }
         }
         return $this->addIndex(new Index($type, $fields, $name));

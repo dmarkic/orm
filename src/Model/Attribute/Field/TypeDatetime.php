@@ -3,31 +3,38 @@
 declare(strict_types=1);
 
 namespace Blrf\Orm\Model\Attribute\Field;
+
+use Blrf\Orm\Factory;
 use DateTimeInterface;
 use DateTimeImmutable;
 use ValueError;
 
 class TypeDatetime extends BaseType
 {
-    public function __construct(
-        string $format = 'Y-m-d H:i:s',
-        bool $isNull = false,
-        Type $type = Type::DATETIME,
-        public readonly string $datetimeClass = DateTimeImmutable::class
-    ) {
-        parent::__construct(
+    public static function factory(
+        string $format = '',
+        bool $isNull = false
+    ): self {
+        if (empty($format)) {
+            $format = Factory::getDateTimeFormat();
+        }
+        return new self(
             type: Type::DATETIME,
             format: $format,
             isNull: $isNull
         );
     }
 
-    public function cast(mixed $value): \DateTimeInterface
+    public function cast(mixed $value): ?DateTimeInterface
     {
-        if ($value instanceof DateTimeInterfac) {
+        if ($value === null) {
             return $value;
         }
-        $ret = $this->datetimeClass::createFromFormat($this->format, $value);
+        if ($value instanceof DateTimeInterface) {
+            return $value;
+        }
+        $dtClass = Factory::getDateTimeClass();
+        $ret = $dtClass::createFromFormat($this->format, $value);
         if ($ret === false) {
             throw new ValueError(
                 'Value: ' . $value . ' cannot be converted to date-time ' .
@@ -37,8 +44,11 @@ class TypeDatetime extends BaseType
         return $ret;
     }
 
-    public function decast(mixed $value): string
+    public function decast(mixed $value): ?string
     {
+        if ($value === null) {
+            return null;
+        }
         return $value->format(ltrim($this->format, '!'));
     }
 }

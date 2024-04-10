@@ -2,12 +2,10 @@
 
 namespace Blrf\Tests\Orm\Model\Meta\Data\NamingStrategy;
 
-use Blrf\Orm\Model\Meta\Data\NamingStrategy;
 use Blrf\Orm\Model\Meta\Data\NamingStrategy\SnakeCase;
 use Blrf\Tests\Orm\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 
-#[CoversClass(NamingStrategy::class)]
 #[CoversClass(SnakeCase::class)]
 class SnakeCaseTest extends TestCase
 {

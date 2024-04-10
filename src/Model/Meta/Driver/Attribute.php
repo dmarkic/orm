@@ -33,6 +33,9 @@ use function React\Promise\resolve;
  */
 class Attribute extends Driver
 {
+    /**
+     * @var ReflectionClass<\Blrf\Orm\Model>
+     */
     protected ReflectionClass $ref;
     protected NamingStrategy $ns;
 
@@ -133,6 +136,13 @@ class Attribute extends Driver
                 $fattrs = $args['attributes'] ?? [];
                 $column = $args['column'] ?? null;
 
+                if (is_string($type) && enum_exists($type)) {
+                    $type = [
+                        'type'  => 'enum',
+                        'options'   => $type::cases()
+                    ];
+                }
+
                 //$this->logger->debug(' >> Field: name=' . $name . ' type=' . $type . ' column: ' . $column);
 
                 // Read the rest of attributes
@@ -167,13 +177,5 @@ class Attribute extends Driver
 
         $this->logger->info('Done ' . $this->meta->model . ' meta-data');
         return resolve($data);
-    }
-
-    public function readPropertyAttributes(ReflectionProperty $property, Data $data)
-    {
-        $attributes = $property->getAttributes();
-        foreach ($attributes as $attr) {
-            $class = $attr->getName();
-        }
     }
 }

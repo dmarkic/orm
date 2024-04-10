@@ -13,6 +13,9 @@ use ValueError;
 class Index extends BaseAttribute
 {
     public readonly Index\Type $type;
+    /**
+     * @var Field[] $fields
+     */
     public readonly array $fields;
     public readonly string $name;
 
@@ -22,6 +25,7 @@ class Index extends BaseAttribute
      * $fields array allows string here as Attribute driver will convert those to Fields.
      * Data::addIndex() will check for this.
      *
+     * @param Field[] $fields
      * @throws ValueError if fields argument is empty
      */
     public function __construct(

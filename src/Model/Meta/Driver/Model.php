@@ -19,24 +19,29 @@ use function React\Promise\reject;
  */
 class Model extends Driver
 {
+    /** @return PromiseInterface<Data> */
     public function getMetaData(): PromiseInterface
     {
         $model = $this->meta->model;
-        $ret = $model::ormMetaData(new Data($this->meta));
+        if (method_exists($model, 'ormMetaData')) {
+            $ret = $model::ormMetaData(new Data($this->meta));
+        } else {
+            throw new RuntimeException('ormMetaData method does not exist in model: ' . $model);
+        }
         if ($ret instanceof PromiseInterface) {
             return $ret->then(
-                function ($data): PromiseInterface {
+                function ($data): Data {
                     if (!($data instanceof Data)) {
                         throw new RuntimeException(
                             'Model: ' . $this->meta->model . ' has ormMetaData() method that ' .
                             'returns Promise but does not resolve to Data object'
                         );
                     }
-                    return $data->finalize();
+                    return $data;
                 }
             );
         } elseif ($ret instanceof Data) {
-            return $ret->finalize();
+            return resolve($ret);
         } else {
             return reject(
                 new RuntimeException(
