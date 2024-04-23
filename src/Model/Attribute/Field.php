@@ -50,6 +50,12 @@ class Field extends BaseAttribute
      * Set if this field is marked as generated value (via attribute)
      */
     protected ?GeneratedValue $generatedValue = null;
+    /**
+     * Quote identifier
+     *
+     * If QuoteIdentifier attribute is found, this will be set to true.
+     */
+    protected bool $quoteIdentifier = false;
 
     /**
      * Construct new field
@@ -88,6 +94,8 @@ class Field extends BaseAttribute
                     'Generated value attribute already exists on field: ' . $this->name
                 );
                 $this->generatedValue = $attribute;
+            } elseif ($attribute instanceof QuoteIdentifier) {
+                $this->quoteIdentifier = true;
             }
         }
         $this->column = (empty($column) ? $name : $column);
@@ -111,6 +119,11 @@ class Field extends BaseAttribute
     public function isGeneratedValue(): bool
     {
         return $this->generatedValue !== null;
+    }
+
+    public function quoteIdentifier(): bool
+    {
+        return $this->quoteIdentifier;
     }
 
     /**

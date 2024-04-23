@@ -13,7 +13,8 @@ class Source extends BaseAttribute
 {
     public function __construct(
         public readonly string $name,
-        public readonly ?string $schema = null
+        public readonly ?string $schema = null,
+        public readonly bool $quoteIdentifier = false
     ) {
     }
 
