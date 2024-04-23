@@ -56,7 +56,7 @@ abstract class Model implements JsonSerializable
         } elseif (substr(strtolower($name), 0, 3) == 'set') {
             return Factory::getModelManager()->setModelField($this, substr($name, 3), $arguments);
         }
-        throw new BadMethodCallException('Call to undefined method: ' . self::class . '::' . $name . '()');
+        throw new BadMethodCallException('Call to undefined method: ' . get_class($this) . '::' . $name . '()');
     }
 
     /**
