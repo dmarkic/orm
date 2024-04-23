@@ -25,6 +25,7 @@ use React\Promise\PromiseInterface;
  * @method QueryBuilder limit(?int $offset = null, ?int $limit = null)
  * @method QueryBuilder setParameters(array $params)
  * @method QueryBuilder addParameter(mixed ...$param)
+ * @method QueryBuilder fromArray(array $data)
  */
 class QueryBuilder implements LoggerAwareInterface
 {

@@ -29,7 +29,8 @@ class SourceTest extends TestCase
 
     public function testJsonSerialize()
     {
-        $exp = '{"attrName":"Blrf\\\\Orm\\\\Model\\\\Attribute\\\\Source","name":"name","schema":"schema"}';
+        $exp = '{"attrName":"Blrf\\\\Orm\\\\Model\\\\Attribute\\\\Source",' .
+               '"name":"name","schema":"schema","quoteIdentifier":false}';
         $source = new Source('name', 'schema');
         $this->assertSame($exp, json_encode($source));
     }

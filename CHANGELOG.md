@@ -3,6 +3,7 @@
 ## main-dev (...)
 
 - Added QuoteIdentifier attribute to support reserved database keywords for column names
+- Improved error message in Model
 
 ## main-dev (2024-04-02)
 

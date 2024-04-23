@@ -196,7 +196,7 @@ class FieldTest extends TestCase
                ',"name":"name","type":{"type":"int","min":0,"max":4294967295,' .
                '"precision":null,"scale":null,"isNull":false,"options":null,' .
                '"format":null,"field":null},"attributes":[null],"column":"name",' .
-               '"relation":null,"generatedValue":null}';
+               '"relation":null,"generatedValue":null,"quoteIdentifier":false}';
         $this->assertSame($exp, json_encode($field));
     }
 }

@@ -72,6 +72,10 @@ class Finder implements LoggerAwareInterface
                 $source = $metadata->getSource();
                 $alias = $source->name;
                 $qb = new QueryBuilder($connection->query(), $this->meta);
+                $qb->fromArray([
+                    'type'  => 'SELECT',
+                    ...$arguments
+                ]);
                 $qb->fromSource($source);
                 $select = array_map(
                     fn(Field $field) => $qb->selectField($field, $alias),
@@ -82,7 +86,7 @@ class Finder implements LoggerAwareInterface
                 );
                 /**
                  * order argument
-                 */
+                 *
                 if (isset($arguments['order'])) {
                     if (is_array($arguments['order'])) {
                         foreach ($arguments['order'] as $order) {
@@ -98,7 +102,7 @@ class Finder implements LoggerAwareInterface
                 }
                 /**
                  * limit, offset argument
-                 */
+                 *
                 if (isset($arguments['limit'])) {
                     if (is_array($arguments['limit'])) {
                         $limitArg = $arguments['limit'];
@@ -108,7 +112,7 @@ class Finder implements LoggerAwareInterface
                     $limit = isset($limitArg['limit']) ? (int)$limitArg['limit'] : null;
                     $offset = isset($limitArg['offset']) ? (int)$limitArg['offset'] : null;
                     $qb->limit($limit, $offset);
-                }
+                }*/
                 return $qb;
             }
         );
@@ -217,7 +221,7 @@ class Finder implements LoggerAwareInterface
                 foreach ($arguments as $fieldName => $fieldValue) {
                     $field = $metadata->getField($fieldName);
                     if ($field === null) {
-                        return BadMethodCallException('No such field: ' . $fieldName . ' in model: ' . $model);
+                        throw new BadMethodCallException('No such field: ' . $fieldName . ' in model: ' . $model);
                     }
                     $conditions[] = $qb->fieldCondition($field);
                     $parameters[] = $field->cast($fieldValue);
