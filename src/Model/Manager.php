@@ -376,7 +376,7 @@ class Manager implements LoggerAwareInterface
                                             $value
                                         ): PromiseInterface|QueryBuilder {
                                             $qb
-                                                ->andWhere(new Condition($relation->getField()->column))
+                                                ->andWhere($qb->fieldCondition($relation->getField()))
                                                 ->addParameter($value);
                                             if ($execute) {
                                                 return $qb->execute();
@@ -521,31 +521,36 @@ class Manager implements LoggerAwareInterface
     public function insertModel(Model $model): PromiseInterface
     {
         $values = [];
-        $metadata = null;
+        $meta = null;
         $this->logger->debug('Inserting model: ' . $model::class);
         return $this->getMeta($model::class)->then(
-            function (Meta $meta) use ($model, &$metadata, &$values): PromiseInterface {
+            function (Meta $_meta) use ($model, &$meta, &$values): PromiseInterface {
+                $meta = $_meta;
                 $metadata = $meta->getData();
                 $hydrator = $this->getHydrator($model::class);
                 $values = $hydrator->dehydrate($model);
                 return $this->getConnection($model::class, 'insert');
             }
         )->then(
-            function (Connection $db) use (&$metadata, &$values): PromiseInterface {
-                $qb = $db
-                    ->query()
-                    ->insert((string)$metadata->getSource())
-                    ->values($values);
+            function (Connection $db) use (&$meta, &$values): PromiseInterface {
+                $qb = new QueryBuilder($db->query(), $meta);
+                $qb
+                    ->insertSource($meta->getData()->getSource());
+                foreach ($meta->getData()->getFields() as $field) {
+                    if (isset($values[$field->column])) {
+                        $qb->fieldValue($field, $values[$field->column]);
+                    }
+                }
                 return $qb->execute();
             }
         )->then(
-            function (DbalResult $res) use (&$metadata, $model) {
+            function (Result $res) use (&$meta, $model) {
                 if (!empty($res->insertId)) {
                     $this->logger->debug('Received insertId: ' . $res->insertId);
                     /**
                      * Get generated field
                      */
-                    $field = $metadata->getGeneratedValueField();
+                    $field = $meta->getData()->getGeneratedValueField();
                     if ($field !== null) {
                         $this->logger->debug('Setting ' . $field->name . ' to insertId: ' . $res->insertId);
                         $this
@@ -575,11 +580,12 @@ class Manager implements LoggerAwareInterface
     public function updateModel(Model $model): PromiseInterface
     {
         $this->logger->debug('Update model: ' . $model::class);
-        $metadata = null;
+        $meta = null;
         $index = null;
         $changes = [];
         return $this->getMeta($model::class)->then(
-            function (Meta $meta) use ($model, &$metadata, &$index, &$changes): PromiseInterface|Model {
+            function (Meta $_meta) use ($model, &$meta, &$index, &$changes): PromiseInterface|Model {
+                $meta = $_meta;
                 $changes = $this->getChanges($model);
                 $this->logger->info('Found ' . count($changes) . ' change(s) in model: ' . $model::class);
                 if (count($changes) == 0) {
@@ -600,31 +606,31 @@ class Manager implements LoggerAwareInterface
                 return $this->getConnection($model::class, 'update');
             }
         )->then(
-            function (Connection $db = null) use ($model, &$metadata, &$index, &$changes): PromiseInterface {
+            function (Connection $db = null) use ($model, &$meta, &$index, &$changes): PromiseInterface {
 
                 $modelData = $this->getHydrator($model::class)->dehydrate($model);
                 $values = [];
+                $qb = new QueryBuilder($db->query(), $meta);
+                $qb->updateSource($meta->getData()->getSource());
                 foreach ($changes as $change) {
                     $column = $change['field']->column;
                     if (!isset($modelData[$column])) {
                         throw new LogicException('Column: ' . $column . ' does not exist in dehydrated model data');
                     }
-                    $values[$column] = $modelData[$column];
+                    //$values[$column] = $modelData[$column];
+                    $qb->fieldValue($change['field'], $modelData[$column]);
                 }
-                assert(!empty($values), 'Values are empty for update');
+                //assert(!empty($values), 'Values are empty for update');
                 $params = [];
                 $hydrator = $this->getHydrator($model::class);
                 $conditions = [];
                 foreach ($index->fields as $field) {
-                    $conditions[] = new Condition($field->column);
+                    $conditions[] = $qb->fieldCondition($field);
                     $params[] = $field->decast($hydrator->getFieldValue($model, $field));
                 }
                 assert(!empty($conditions), 'Conditions are empty');
                 assert(!empty($params), 'Parameters are empty');
-                return $db
-                    ->query()
-                    ->update((string)$metadata->getSource())
-                    ->values($values)
+                return $qb
                     ->where(
                         fn($cb) => $cb->and(...$conditions)
                     )
@@ -632,7 +638,7 @@ class Manager implements LoggerAwareInterface
                     ->execute();
             }
         )->then(
-            function (DbalResult $res) use ($model) {
+            function (Result $res) use ($model) {
                 $this->logger->debug('Affected rows: ' . $res->affectedRows);
                 $this->getHydrator($model::class)->changes->store($model);
                 return $model;
@@ -711,9 +717,10 @@ class Manager implements LoggerAwareInterface
     public function deleteModel(Model $model): PromiseInterface
     {
         $index = null;
-        $metadata = null;
+        $meta = null;
         return $this->getMeta($model::class)->then(
-            function (Meta $meta) use (&$index, &$metadata, $model): PromiseInterface {
+            function (Meta $_meta) use (&$index, &$meta, $model): PromiseInterface {
+                $meta = $_meta;
                 $metadata = $meta->getData();
                 $index = $metadata->getPrimaryIndex();
                 if ($index === null) {
@@ -729,17 +736,17 @@ class Manager implements LoggerAwareInterface
                 return $this->getConnection($model::class, 'delete');
             }
         )->then(
-            function (Connection $db) use (&$index, &$metadata, $model): PromiseInterface {
+            function (Connection $db) use (&$index, &$meta, $model): PromiseInterface {
                 $params = [];
                 $hydrator = $this->getHydrator($model::class);
                 $conditions = [];
+                $qb = new QueryBuilder($db->query(), $meta);
                 foreach ($index->fields as $field) {
-                    $conditions[] = new Condition($field->column);
+                    $conditions[] = $qb->fieldCondition($field);
                     $params[] = $hydrator->getFieldValue($model, $field);
                 }
-                return $db
-                    ->query()
-                    ->delete((string)$metadata->getSource())
+                return $qb
+                    ->deleteSource($meta->getData()->getSource())
                     ->where(
                         fn($cb) => $cb->and(...$conditions)
                     )
@@ -747,7 +754,7 @@ class Manager implements LoggerAwareInterface
                     ->execute();
             }
         )->then(
-            function (DbalResult $res) use ($model): bool {
+            function (Result $res) use ($model): bool {
                 /**
                  * Destroy changes for object
                  */

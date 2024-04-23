@@ -58,6 +58,7 @@ class Finder implements LoggerAwareInterface
      *
      * @param FindArguments $arguments
      * @return PromiseInterface<QueryBuilder>
+     * @note This method should accept field names not columns
      */
     public function find(array $arguments = []): PromiseInterface
     {
@@ -70,16 +71,15 @@ class Finder implements LoggerAwareInterface
                 $metadata = $this->meta->getData();
                 $source = $metadata->getSource();
                 $alias = $source->name;
-                $qb = $connection->query();
+                $qb = new QueryBuilder($connection->query(), $this->meta);
+                $qb->fromSource($source);
                 $select = array_map(
-                    fn(Field $field) => new SelectExpression($alias . '.' . $field->column, $field->column),
+                    fn(Field $field) => $qb->selectField($field, $alias),
                     array_filter(
                         $metadata->getFields(),
                         fn(Field $field) => $field->type->type != Field\Type::RELATED
                     )
                 );
-                $qb->select(...$select);
-                $qb->from(new FromExpression((string)$source, $alias));
                 /**
                  * order argument
                  */
@@ -109,7 +109,7 @@ class Finder implements LoggerAwareInterface
                     $offset = isset($limitArg['offset']) ? (int)$limitArg['offset'] : null;
                     $qb->limit($limit, $offset);
                 }
-                return new QueryBuilder($qb, $this->meta);
+                return $qb;
             }
         );
     }
@@ -171,12 +171,12 @@ class Finder implements LoggerAwareInterface
                 )
             );
         }
-        $conditions = [];
-        foreach ($fields as $field) {
-            $conditions[] = new Condition($field->column, '=');
-        }
         return $this->find()->then(
-            function (QueryBuilder $qb) use ($conditions, $arguments): PromiseInterface {
+            function (QueryBuilder $qb) use ($fields, $arguments): PromiseInterface {
+                $conditions = [];
+                foreach ($fields as $field) {
+                    $conditions[] = $qb->fieldCondition($field);
+                }
                 return $qb
                     ->where(new ConditionGroup(ConditionType::AND, ...$conditions))
                     ->setParameters($arguments)
@@ -208,37 +208,33 @@ class Finder implements LoggerAwareInterface
     public function findFirstBy(array $arguments): PromiseInterface
     {
         $arguments = $arguments[0] ?? $arguments; // when called via Model::findFirstBy*
-        /**
-         * Check arguments and create where and parameters
-         */
-        $model = $this->meta->model;
-        $metadata = $this->meta->getData();
-        $conditions = [];
-        $parameters = [];
-        foreach ($arguments as $fieldName => $fieldValue) {
-            $field = $metadata->getField($fieldName);
-            if ($field === null) {
-                return reject(
-                    new BadMethodCallException('No such field: ' . $fieldName . ' in model ' . $model)
-                );
-            }
-            $conditions[] = new Condition($field->column);
-            $parameters[] = $field->cast($fieldValue);
-        }
         return $this->find()->then(
-            function (QueryBuilder $qb) use ($conditions, $arguments): PromiseInterface {
+            function (QueryBuilder $qb) use ($arguments): PromiseInterface {
+                $model = $this->meta->model;
+                $metadata = $this->meta->getData();
+                $conditions = [];
+                $parameters = [];
+                foreach ($arguments as $fieldName => $fieldValue) {
+                    $field = $metadata->getField($fieldName);
+                    if ($field === null) {
+                        return BadMethodCallException('No such field: ' . $fieldName . ' in model: ' . $model);
+                    }
+                    $conditions[] = $qb->fieldCondition($field);
+                    $parameters[] = $field->cast($fieldValue);
+                }
+
                 return $qb
                     ->where(new ConditionGroup(ConditionType::AND, ...$conditions))
-                    ->setParameters($arguments)
+                    ->setParameters($parameters)
                     ->limit(1)
                     ->execute();
             }
         )->then(
-            function (Result $result) use ($model, $arguments): Model {
+            function (Result $result): Model {
                 $ret = $result->first();
                 if ($ret === null) {
                     throw new NotFoundException(
-                        'No such model ' . $model . ' in database: primaryKey(s): ' . implode(',', $arguments)
+                        'No such model ' . $this->meta->model
                     );
                 }
                 return $ret;
