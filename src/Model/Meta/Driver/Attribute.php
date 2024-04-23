@@ -96,10 +96,17 @@ class Attribute extends Driver
                     break;
                 case Source::class:
                     $arguments = $attr->getArguments();
+                    /*
                     if (count($arguments) === 0) {
                         $parts = explode('\\', $this->meta->model);
                         $table = end($parts);
                         $arguments[] = $this->ns->getTableName($table);
+                    }
+                    */
+                    if (!isset($arguments['name'])) {
+                        $parts = explode('\\', $this->meta->model);
+                        $table = end($parts);
+                        $arguments['name'] = $this->ns->getTableName($table);
                     }
                     $source = new $class(...$arguments);
                     $data->setSource($source);
