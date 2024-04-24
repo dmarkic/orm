@@ -95,14 +95,21 @@ class Attribute extends Driver
                 case DerivedModel::class:
                     break;
                 case Source::class:
+                    /**
+                     * Source() without arguments
+                     * Source('table') arguments[0]
+                     * Source(name:'table') arguments['name']
+                     */
                     $arguments = $attr->getArguments();
-                    /*
                     if (count($arguments) === 0) {
                         $parts = explode('\\', $this->meta->model);
                         $table = end($parts);
-                        $arguments[] = $this->ns->getTableName($table);
+                        $arguments['name'] = $this->ns->getTableName($table);
                     }
-                    */
+                    if (isset($arguments[0])) {
+                        $arguments['name'] = $arguments[0];
+                        unset($arguments[0]);
+                    }
                     if (!isset($arguments['name'])) {
                         $parts = explode('\\', $this->meta->model);
                         $table = end($parts);
