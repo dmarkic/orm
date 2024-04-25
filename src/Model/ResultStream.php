@@ -17,7 +17,7 @@ class ResultStream extends DbalResultStream
     protected bool $closed = false;
 
     public function __construct(
-        public readonly ReadableStreamInterface $stream,
+        ReadableStreamInterface $stream,
         public readonly Meta $meta,
         public readonly string $hydrate_type = Result::HYDRATE_OBJECT
     ) {
