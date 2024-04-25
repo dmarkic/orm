@@ -137,6 +137,11 @@ class QueryBuilder implements LoggerAwareInterface
         return new Condition($column, $operator);
     }
 
+    public function condition(...$args)
+    {
+        return $this->queryBuilder->condition(...$args);
+    }
+
     /** @return PromiseInterface<Result> */
     public function execute(): PromiseInterface
     {
