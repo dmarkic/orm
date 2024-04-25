@@ -4,7 +4,6 @@ namespace Blrf\Orm\Model\Attribute;
 
 use Blrf\Orm\Model\Attribute as BaseAttribute;
 use Attribute;
-
 /**
  * Define model relation
  */
@@ -52,6 +51,17 @@ class Relation extends BaseAttribute
         $this->model = $model;
         $this->field = $field;
         $this->alias = strtolower($alias);
+    }
+
+    public function jsonSerialize(): array
+    {
+        return [
+            'attrName'  => get_class($this),
+            'type'      => $this->type,
+            'model'     => $this->model,
+            'field'     => $this->field,
+            'alias'     => $this->alias
+        ];
     }
 
     /**
