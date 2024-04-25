@@ -32,7 +32,7 @@ class RelationTest extends TestCase
     public function testJsonSerialize()
     {
         $exp = '{"attrName":"Blrf\\\\Orm\\\\Model\\\\Attribute\\\\Relation",' .
-               '"type":"ONETOONE","model":"model","field":"field","rfield":null,"alias":""}';
+               '"type":"ONETOONE","model":"model","field":"field","alias":""}';
         $relation = new Relation('ONETOONE', 'model', 'field');
         $this->assertSame($exp, json_encode($relation));
     }

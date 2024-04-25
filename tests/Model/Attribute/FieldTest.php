@@ -191,12 +191,13 @@ class FieldTest extends TestCase
     public function testJsonSerialize()
     {
         $relation = $this->createMock(Relation::class);
+        $relation->method('jsonSerialize')->willReturn(['foo' => 'bar']);
         $field = new Field('name', 'int', 'name', $relation);
         $exp = '{"attrName":"Blrf\\\\Orm\\\\Model\\\\Attribute\\\\Field"' .
                ',"name":"name","type":{"type":"int","min":0,"max":4294967295,' .
                '"precision":null,"scale":null,"isNull":false,"options":null,' .
-               '"format":null,"field":null},"attributes":[null],"column":"name",' .
-               '"relation":null,"generatedValue":null,"quoteIdentifier":false}';
+               '"format":null,"field":null},"attributes":[{"foo":"bar"}],"column":"name",' .
+               '"relation":{"foo":"bar"},"generatedValue":null,"quoteIdentifier":false}';
         $this->assertSame($exp, json_encode($field));
     }
 }
