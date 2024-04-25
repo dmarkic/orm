@@ -8,6 +8,7 @@ use Blrf\Dbal\Result as DbalResult;
 use Blrf\Dbal\ResultStream as DbalResultStream;
 use Blrf\Dbal\Driver\QueryBuilder as BaseQueryBuilder;
 use Blrf\Dbal\Query\Condition;
+use Blrf\Dbal\Query\ConditionBuilder;
 use Blrf\Orm\Factory;
 use Blrf\Orm\Model\Attribute\Field;
 use Blrf\Orm\Model\Attribute\Source;
@@ -137,9 +138,12 @@ class QueryBuilder implements LoggerAwareInterface
         return new Condition($column, $operator);
     }
 
-    public function condition(...$args)
-    {
-        return $this->queryBuilder->condition(...$args);
+    public function condition(
+        string $expression = null,
+        string $operator = '=',
+        string $value = '?'
+    ): Condition|ConditionBuilder {
+        return $this->queryBuilder->condition($expression, $operator, $value);
     }
 
     /** @return PromiseInterface<Result> */
