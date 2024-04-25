@@ -213,7 +213,7 @@ class Manager implements LoggerAwareInterface
      *
      * @see Finder
      * @param class-string<Model> $model
-     * @param FindArguments $arguments
+     * @param FindArguments|array<FindArguments> $arguments
      * @return PromiseInterface<QueryBuilder|Result|Model>
      */
     public function invokeFind(string $model, string $name, array $arguments): PromiseInterface

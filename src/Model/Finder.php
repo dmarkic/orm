@@ -56,7 +56,7 @@ class Finder implements LoggerAwareInterface
      * 'key' => 'value'
      * where keys are various SQL expression (limit, order,...)
      *
-     * @param FindArguments $arguments
+     * @param FindArguments|array<FindArguments> $arguments
      * @return PromiseInterface<QueryBuilder>
      * @note This method should accept field names not columns
      */

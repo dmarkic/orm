@@ -53,6 +53,15 @@ class Relation extends BaseAttribute
         $this->alias = strtolower($alias);
     }
 
+    /**
+     * @return array{
+     *      attrName: class-string,
+     *      type: Relation\Type,
+     *      model: class-string,
+     *      field: string,
+     *      alias: string
+     * }
+     */
     public function jsonSerialize(): array
     {
         return [
