@@ -2,6 +2,8 @@
 
 ## main-dev (...)
 
+- Attribute\Relation will not return rfield in json_encode() as it causes circular loop
+- Fix Finder::find() to accept arguments[0][FindArguments]
 - Added QuoteIdentifier attribute to support reserved database keywords for column names
 - Improved error message in Model
 - Correctly recognize nullable enums
