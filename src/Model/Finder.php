@@ -65,6 +65,12 @@ class Finder implements LoggerAwareInterface
         $this->logger->debug('find() with argument keys: ' . implode(', ', array_keys($arguments)));
         return $this->meta->manager->getConnection($this->meta->model, 'find')->then(
             function (Connection $connection) use ($arguments): QueryBuilder {
+                if (isset($arguments[0])) {
+                    /**
+                     * maybe this should be done in Manager::invokeFind()?
+                     */
+                    $arguments = $arguments[0];
+                }
                 /**
                  * Only joined table will have aliases, when we get there.
                  */
