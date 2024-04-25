@@ -221,8 +221,11 @@ class Hydrator implements LoggerAwareInterface
                      * If user would want a simple "datetime", it should implement it's own
                      * DateTime and use Factory::setDateTimeClass() to change default class which
                      * implements different jsonSerialize() method.
+                     *
+                     * We do decast field as we have ENUM values which are not converted to
+                     * array.
                      */
-                    $ret[$field->name] = $value;
+                    $ret[$field->name] = $field->decast($value);
                 }
             }
         }
