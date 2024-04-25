@@ -150,11 +150,19 @@ class Attribute extends Driver
                 $fattrs = $args['attributes'] ?? [];
                 $column = $args['column'] ?? null;
 
-                if (is_string($type) && enum_exists($type)) {
-                    $type = [
-                        'type'  => 'enum',
-                        'options'   => $type::cases()
-                    ];
+                if (is_string($type)) {
+                    $isNull = false;
+                    if (strpos($type, '?') === 0) {
+                        $type = ltrim($type, '?');
+                        $isNull = true;
+                    }
+                    if (enum_exists($type)) {
+                        $type = [
+                            'type'      => 'enum',
+                            'options'   => $type::cases(),
+                            'isNull'    => $isNull
+                        ];
+                    }
                 }
 
                 //$this->logger->debug(' >> Field: name=' . $name . ' type=' . $type . ' column: ' . $column);
