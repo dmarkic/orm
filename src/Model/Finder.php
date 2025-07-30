@@ -127,7 +127,7 @@ class Finder implements LoggerAwareInterface
     /**
      * Find all
      *
-     * Same as Model::find(true)
+     * Same as Model::find(true) -- Model::find(true) is not working!!
      * @param FindArguments $arguments
      * @return PromiseInterface<Result>
      */
