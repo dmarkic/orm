@@ -1,6 +1,7 @@
 <?php
 
-declare(strict_types=1);
+// strict_types=1 removed as value is int or string
+//declare(strict_types=1);
 
 namespace Blrf\Orm\Model\Attribute\Field;
 
