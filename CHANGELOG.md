@@ -1,5 +1,10 @@
 # Changelog
 
+## main-dev (2025-07-30)
+
+- Removed strict_types from Model\Attribute\Field\TypeEnum as backed enum can be int or string. Maybe check that later and implement correct cast
+- Correctly return NULL for related object if not set
+
 ## main-dev (...)
 
 - Attribute\Relation will not return rfield in json_encode() as it causes circular loop
