@@ -58,7 +58,7 @@ enum Type: string
      * Create field type from array
      *
      * @param array{
-     *      type?: string,
+     *      type?: string|Type,
      *      min?:int|float|null,
      *      max?:int|float|null,
      *      precision?:int|null,

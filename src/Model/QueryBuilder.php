@@ -19,14 +19,16 @@ use React\Promise\PromiseInterface;
 /**
  * Model query builder
  *
+ * @phpstan-import-type QueryBuilderFromArray from \Blrf\Dbal\QueryBuilderInterface
+ *
  * @method QueryBuilder where(\Blrf\Dbal\Query\Condition|\Blrf\Dbal\Query\ConditionGroup|callable $condition)
  * @method QueryBuilder andWhere(\Blrf\Dbal\Query\Condition|\Blrf\Dbal\Query\ConditionGroup|callable $condition)
  * @method QueryBuilder orWhere(\Blrf\Dbal\Query\Condition|\Blrf\Dbal\Query\ConditionGroup|callable $condition)
  * @method QueryBuilder addOrderByExpression(\Blrf\Dbal\Query\OrderByExpression $expr)
  * @method QueryBuilder limit(?int $offset = null, ?int $limit = null)
- * @method QueryBuilder setParameters(array $params)
+ * @method QueryBuilder setParameters(array<mixed> $params)
  * @method QueryBuilder addParameter(mixed ...$param)
- * @method QueryBuilder fromArray(array $data)
+ * @method QueryBuilder fromArray(QueryBuilderFromArray $data)
  */
 class QueryBuilder implements LoggerAwareInterface
 {
