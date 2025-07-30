@@ -401,11 +401,11 @@ class Manager implements LoggerAwareInterface
                                         return $value;
                                     }
                                 );
-                            } elseif ($value instanceof $relation->model) {
-                                $this->logger->debug('Value already resolved');
+                            } elseif ($value instanceof $relation->model || $value === null) {
+                                $this->logger->debug('Value already resolved or NULL');
                                 return $value;
                             } else {
-                                throw new \Exception('Do not know what to do');
+                                throw new \Exception('Do not know what to do with value: ' . gettype($value));
                             }
                         } else {
                             /**
