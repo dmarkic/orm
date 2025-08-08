@@ -66,11 +66,14 @@ class Field extends BaseAttribute
      * @param BaseAttribute $attribute List of attributes for field
      */
     public function __construct(
-        string $name,
-        Field\BaseType|array|string $type,
+        string $name = '',
+        Field\BaseType|array|string $type = '',
         ?string $column = null,
         BaseAttribute ...$attribute
     ) {
+        if (strlen($name) == 0) {
+            throw new ValueError('Field name cannot be empty');
+        }
         $this->name = $name;
         // check type
         if (is_string($type)) {
