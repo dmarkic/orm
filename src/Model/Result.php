@@ -6,9 +6,12 @@ namespace Blrf\Orm\Model;
 
 use Blrf\Dbal\Result as DbalResult;
 use Blrf\Orm\Model;
+use React\Promise\PromiseInterface;
 use Countable;
 use Iterator;
 use count;
+
+use function React\Async\parallel;
 
 /**
  * Model query result
@@ -89,5 +92,14 @@ class Result implements Iterator, Countable
     public function valid(): bool
     {
         return isset($this->result->rows[$this->position]);
+    }
+
+    public function toArray(): PromiseInterface
+    {
+        $ret = [];
+        foreach ($this->result as $row) {
+            $ret[] = fn() => $this->hydrateRow($row)->toArray();
+        }
+        return parallel($ret);
     }
 }
