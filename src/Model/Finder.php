@@ -225,6 +225,7 @@ class Finder implements LoggerAwareInterface
                 $conditions = [];
                 $parameters = [];
                 foreach ($arguments as $fieldName => $fieldValue) {
+                    $this->logger->debug('Find first by: ' . $fieldName . ' = ' . $fieldValue);
                     $field = $metadata->getField($fieldName);
                     if ($field === null) {
                         throw new BadMethodCallException('No such field: ' . $fieldName . ' in model: ' . $model);

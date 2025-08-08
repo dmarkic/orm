@@ -218,9 +218,40 @@ class Manager implements LoggerAwareInterface
      */
     public function invokeFind(string $model, string $name, array $arguments): PromiseInterface
     {
-        $this->logger->info('model: ' . $model . ' name: find' . $name . '() arguments: ' . count($arguments));
+        $this->logger->debug('model: ' . $model . ' name: find' . $name . '() argumentsCount: ' . count($arguments));
         return $this->getFinder($model)->then(
             function (Finder $finder) use ($model, $name, $arguments): PromiseInterface {
+                /**
+                 * Check if Model::findFirstBy...() was called
+                 */
+                if (fnmatch('firstby*', strtolower($name))) {
+                    $fname = substr($name, 7);
+                    if (strlen($fname) == 0) {
+                        throw new BadMethodCallException(
+                            'Missing field for ' . $model . '::find' . $name
+                        );
+                    }
+                    return $this->getMeta($model)->then(
+                        function (Meta $meta) use ($finder, $fname, $model, $arguments) {
+                            $metadata = $meta->getData();
+                            // example: PublisherId: names: [publisher_id, PublisherId]
+                            // array_unique and strtolower so we don't search 'Book' and 'book' twice.
+                            $names = array_unique([SnakeCase::convert($fname), strtolower($fname)]);
+
+                            foreach ($names as $checkFieldName) {
+                                $field = $metadata->getField($checkFieldName);
+                                if ($field) {
+                                    $this->logger->debug('Found field: ' . $field);
+                                    return $finder->findFirstBy([$field->name => $arguments[0]]);
+                                }
+                            }
+                            throw new BadMethodCallException(
+                                'Call to undefined method: ' . $model . '::' . $method . '. ' .
+                                'No such field: ' . $fname
+                            );
+                        }
+                    );
+                }
                 $method = 'find' . $name;
                 $this->logger->debug('Got finder, calling method: ' . $method);
                 if (method_exists($finder, $method)) {

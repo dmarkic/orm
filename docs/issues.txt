@@ -1,0 +1,5 @@
+- Select fields from other objects - you cannot do that easily
+  - You could select myObject with join and where otherObject.field = something. But you would
+    still have to query again (promise) otherObject from myObject.
+- Where parameter should take care of strings. Eg. where' => ['field', 'op', 'value']
+  - Not really - as you should never directly write the parameter. It should be '?' and parameters should be set.
