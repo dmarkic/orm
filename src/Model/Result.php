@@ -94,6 +94,7 @@ class Result implements Iterator, Countable
         return isset($this->result->rows[$this->position]);
     }
 
+    /** @return PromiseInterface<array<mixed>> */
     public function toArray(): PromiseInterface
     {
         $ret = [];

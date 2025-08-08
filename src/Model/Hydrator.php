@@ -100,6 +100,7 @@ class Hydrator implements LoggerAwareInterface
          */
         $method = 'ormHydrateModel';
         if (method_exists($model, $method)) {
+            // @phpstan-ignore method.staticCall
             $ret = $model::$method($model, $metadata, $data);
             if (!($ret instanceof $model)) {
                 throw new RuntimeException(

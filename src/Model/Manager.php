@@ -232,7 +232,7 @@ class Manager implements LoggerAwareInterface
                         );
                     }
                     return $this->getMeta($model)->then(
-                        function (Meta $meta) use ($finder, $fname, $model, $arguments) {
+                        function (Meta $meta) use ($finder, $name, $fname, $model, $arguments) {
                             $metadata = $meta->getData();
                             // example: PublisherId: names: [publisher_id, PublisherId]
                             // array_unique and strtolower so we don't search 'Book' and 'book' twice.
@@ -246,7 +246,7 @@ class Manager implements LoggerAwareInterface
                                 }
                             }
                             throw new BadMethodCallException(
-                                'Call to undefined method: ' . $model . '::' . $method . '. ' .
+                                'Call to undefined method: ' . $model . '::' . $name . '. ' .
                                 'No such field: ' . $fname
                             );
                         }
